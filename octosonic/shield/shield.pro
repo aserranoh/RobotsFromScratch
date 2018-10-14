@@ -1,4 +1,4 @@
-update=Wed 03 Oct 2018 03:11:49 PM CEST
+update=mar 09 oct 2018 17:12:10 CEST
 version=1
 last_client=kicad
 [pcbnew]
@@ -61,4 +61,5 @@ LibName29=opto
 LibName30=atmel
 LibName31=contrib
 LibName32=valves
-LibName33=/home/toni/projectes/rfs/kicad-components/arduino_shieldsNCL
+LibName33=rfs
+LibName34=arduino
