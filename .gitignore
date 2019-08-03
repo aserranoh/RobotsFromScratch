@@ -12,3 +12,5 @@
 fp-lib-table
 *.stl
 *~
+*.o
+*.a
