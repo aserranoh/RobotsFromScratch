@@ -1,9 +1,9 @@
 
 MCU = atmega328p
 F = 16000000UL
-CFLAGS = -Os -Wall -std=c11
+CFLAGS = -O2 -Wall -std=c11
 
-objects = capture.o usart.o
+objects = core.o pin.o ultrasonic.o usart.o
 
 librfsavr.a: $(objects)
 	ar rcs librfsavr.a $^

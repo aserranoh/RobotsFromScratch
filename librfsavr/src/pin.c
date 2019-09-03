@@ -1,5 +1,5 @@
 /*
-usart_common.h - USART common vars in interrupt and non-interrupt space.
+pin.c - Operations with i/o ports and pins.
 
 This file is part of RobotsFromScratch.
 
@@ -20,13 +20,31 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 <http://www.gnu.org/licenses/>.
 */
 
-#ifndef RFSAVR_USART_COMMON_H
-#define RFSAVR_USART_COMMON_H
+#include <avr/io.h>
 
-#define USART_RX_BUFFER_SIZE        32
-#define USART_TX_BUFFER_SIZE        32
-#define USART_RX_MASK               (USART_RX_BUFFER_SIZE - 1)
-#define USART_TX_MASK               (USART_TX_BUFFER_SIZE - 1)
+#include "rfsavr/pin.h"
 
-#endif
+void
+rfs_pin_initb (rfs_pin_t *pin, uint8_t num)
+{
+    pin->port_ptr = &PORTB;
+    pin->ddr_ptr = &DDRB;
+    pin->n = num;
+}
+
+void
+rfs_pin_initc (rfs_pin_t *pin, uint8_t num)
+{
+    pin->port_ptr = &PORTC;
+    pin->ddr_ptr = &DDRC;
+    pin->n = num;
+}
+
+void
+rfs_pin_initd (rfs_pin_t *pin, uint8_t num)
+{
+    pin->port_ptr = &PORTD;
+    pin->ddr_ptr = &DDRD;
+    pin->n = num;
+}
 
