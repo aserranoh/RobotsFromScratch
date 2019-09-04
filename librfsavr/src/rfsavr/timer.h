@@ -67,6 +67,9 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 // Reset the given interrupt flags
 #define rfs_timer1_resetintflag(f)      TIFR1 &= ~(f)
 
+// Get the status of the interrupt flags
+#define rfs_timer1_getintflag(f)        (TIFR1 & (f))
+
 // Timer1 possible mode of operation
 enum rfs_timer1_mode {
     RFS_TIMER1_MODE_NORMAL,             // Normal mode

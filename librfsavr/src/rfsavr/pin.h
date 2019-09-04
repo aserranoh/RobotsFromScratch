@@ -55,22 +55,22 @@ rfs_pin_initd (rfs_pin_t *pin, uint8_t num);
 /* Configure a pin as input.
      * pin: the descriptor of the pin.
 */
-#define rfs_pin_input(pin)	{ *(pin).ddr_ptr &= ~_BV ((pin).n); }
+#define rfs_pin_input(pin)  *((pin).ddr_ptr) &= ~_BV ((pin).n)
 
 /* Configure a pin as output.
      * pin: the descriptor of the pin.
 */
-#define rfs_pin_output(pin)	{ *(pin).ddr_ptr |= _BV ((pin).n); }
+#define rfs_pin_output(pin)	*((pin).ddr_ptr) |= _BV ((pin).n)
 
 /* Set a pin to 1.
      * pin: the descriptor of the pin.
 */
-#define rfs_pin_set(pin)	{ *(pin).port_ptr |= _BV ((pin).n); }
+#define rfs_pin_set(pin)	*((pin).port_ptr) |= _BV ((pin).n)
 
 /* Set a pin to 0.
      * pin: the descriptor of the pin.
 */
-#define rfs_pin_reset(pin)	{ *(pin).port_ptr &= ~_BV ((pin).n); }
+#define rfs_pin_reset(pin)	*((pin).port_ptr) &= ~_BV ((pin).n)
 
 #endif
 

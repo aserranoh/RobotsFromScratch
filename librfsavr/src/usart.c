@@ -24,7 +24,7 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 #include <util/atomic.h>
 
 #include "rfsavr/core.h"
-#include "rfsavr/interrupts.h"
+#include "rfsavr/interrupt.h"
 #include "rfsavr/usart.h"
 
 #define USART_NORMAL_SPEED_DIVISOR  16
@@ -280,8 +280,8 @@ rfs_usart_init (int8_t mode, int32_t flags)
 
     // Enable interrupts
     if (flags & RFS_USART_INT) {
-        rfs_int_register (RFS_INT_USARTRX, rfs_usart_rx, 0);
-        rfs_int_register (RFS_INT_USARTIDLE, rfs_usart_tx, 0);
+        rfs_int_register (RFS_INT_USARTRX, rfs_usart_rx, 0, 0);
+        rfs_int_register (RFS_INT_USARTIDLE, rfs_usart_tx, 0, 0);
     }
 }
 

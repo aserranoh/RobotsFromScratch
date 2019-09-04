@@ -1,5 +1,5 @@
 /*
-interrupts.c - Routines to manage interrupts and ISRs.
+interrupt.c - Routines to manage interrupts and ISRs.
 
 This file is part of RobotsFromScratch.
 
@@ -33,6 +33,9 @@ struct int_info {
     // Routine
     rfs_int_t isr;
 
+    // Instance of parameter
+    void *param;
+
     // Priority
     int8_t prio;
 
@@ -42,13 +45,13 @@ struct int_info {
 static struct int_info int_tab[INT_SOURCES][INT_MAX];
 
 // List with the number of registered routines by source
-static uint8_t int_size[] = {0, 0};
+static uint8_t int_size[] = {0, 0, 0};
 
 // USART interrupts
 
 #define RFS_INT_ISR(src) \
     for (int i = 0; i < int_size[src]; i++) { \
-        int_tab[src][i].isr (); \
+        int_tab[src][i].isr (int_tab[src][i].param); \
     }
 
 ISR(USART_RX_vect)
@@ -64,7 +67,8 @@ ISR(USART_UDRE_vect)
 // Public functions
 
 int8_t
-rfs_int_register (enum rfs_int_src src, rfs_int_t isr, int8_t prio)
+rfs_int_register (
+    enum rfs_int_src src, rfs_int_t isr, void *param, int8_t prio)
 {
     int i;
 
@@ -79,6 +83,7 @@ rfs_int_register (enum rfs_int_src src, rfs_int_t isr, int8_t prio)
             int_tab[src][i] = int_tab[src][i - 1];
         }
         int_tab[src][i].isr = isr;
+        int_tab[src][i].param = param;
         int_tab[src][i].prio = prio;
         int_size[src]++;
     }

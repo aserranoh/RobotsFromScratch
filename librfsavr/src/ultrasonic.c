@@ -20,6 +20,8 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 <http://www.gnu.org/licenses/>.
 */
 
+#include <util/delay.h>
+
 #include "rfsavr/interrupt.h"
 #include "rfsavr/timer.h"
 #include "rfsavr/ultrasonic.h"
@@ -29,18 +31,22 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 
 // Interrupt request that manages the edge to capture and the captured value
 static void
-ultrasonic_int ()
+ultrasonic_int (void *param)
 {
+    rfs_ultrasonic_t *us = (rfs_ultrasonic_t *)param;
+
     // When raising edge, record the edge timestamp and change the detection
     // edge
     if (rfs_timer1_captureedge == RFS_TIMER1_RAISING) {
-        ultrasonic_startecho = rfs_timer1_capture;
+        us->startecho = rfs_timer1_capture;
         rfs_timer1_setcaptureedge (RFS_TIMER1_FALLING);
         rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
     }
-    // When falling edge, record the edge timestamp
+    // When falling edge, compute the distance and notify the user
     else {
-        ultrasonic_endecho = rfs_timer1_capture;
+        if (us->callback) {
+            us->callback (us, rfs_timer1_capture - us->startecho);
+        }
     }
 }
 
@@ -48,7 +54,6 @@ void
 rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
                      rfs_pin_t *trigger_pin,
                      int8_t prescaler,
-                     int8_t flags,
                      rfs_ultrasonic_callback_t callback)
 {
     // Initialise the descriptor attributes
@@ -63,9 +68,9 @@ rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
 
     // If in non-blocking mode, register and enable timer1 input capture
     // interrupts
-    if (flags & RFS_ULTRASONIC_NOBLOCK) {
-        rfs_int_register (RFS_INT_T1CAPTURE, ultrasonic_int, 0);
-        rfs_int_register (RFS_INT_T1CAPTURE, callback, 0);
+    if (callback) {
+        descriptor->callback = callback;
+        rfs_int_register (RFS_INT_T1CAPTURE, ultrasonic_int, descriptor, 0);
         rfs_timer1_setintmask (RFS_TIMER1_INT_CAPTURE);
     }
 } 
@@ -73,39 +78,33 @@ rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
 uint16_t
 rfs_ultrasonic_trigger (rfs_ultrasonic_t *descriptor)
 {
+    uint16_t startecho, distance;
+
     // Configure the input capture unit to listen to a rising edge
-    rfsavr_capture_setopts (RFSAVR_CAPTURE_FALLING);
+    rfs_timer1_setcaptureedge (RFS_TIMER1_RAISING);
 
     // Emit the trigering pulse
-    rfsavr_pin_set (&(descriptor->pin));
+    rfs_pin_set (descriptor->trigger_pin);
     _delay_us(ULTRASONIC_TRIGGER_PULSE_LENGTH);
-    rfsavr_pin_reset (&(descriptor->pin));
-}
+    rfs_pin_reset (descriptor->trigger_pin);
 
-int32_t
-rfsavr_ultrasonic_read (rfs_ultrasonic_t *descriptor)
-{
-    int32_t end_pulse_timestamp;
-
-    // Wait for the rising edge
-    if (descriptor->start_pulse_timestamp < 0) {
-        descriptor->start_pulse_timestamp = rfsavr_capture_read ();
+    // If in non-blocking mode, return 0 immediately
+    if (descriptor->callback) {
+        distance = 0;
+    // If in blocking mode, wait to the echo pulse to finish completely
+    } else {
+        // Wait for the rising edge of the echo pulse
+        while (!rfs_timer1_getintflag (RFS_TIMER1_INT_CAPTURE));
+        // Record timestamp and change the edge to detect
+        startecho = rfs_timer1_counter;
+        rfs_timer1_setcaptureedge (RFS_TIMER1_FALLING);
+        rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
+        // Wait for the falling edge of the echo pulse
+        while (!rfs_timer1_getintflag (RFS_TIMER1_INT_CAPTURE));
+        // Return the distance value
+        distance = rfs_timer1_counter - startecho;
+        rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
     }
-    // If the first pulse is not returned yet, yield
-    if (descriptor->start_pulse_timestamp < 0) {
-        return -1;
-    }
-
-    // Reconfigure the input capture unit to wait for the falling edge
-    rfsavr_capture_setopts (RFSAVR_CAPTURE_FALLING);
-
-    // Wait for the falling edge
-    end_pulse_timestamp = rfsavr_capture_read ();
-    if (end_pulse_timestamp < 0) {
-        return -1;
-    }
-
-    // Reset the pulse timestamps and return the pulse length
-    return end_pulse_timestamp - descriptor->start_pulse_timestamp;
+    return distance;
 }
 

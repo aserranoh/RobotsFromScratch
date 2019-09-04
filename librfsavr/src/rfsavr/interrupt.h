@@ -1,5 +1,5 @@
 /*
-interrupts.h - Routines to manage interrupts and ISRs.
+interrupt.h - Routines to manage interrupts and ISRs.
 
 This file is part of RobotsFromScratch.
 
@@ -33,9 +33,9 @@ enum rfs_int_src {
 };
 
 /* Type that represents the interrupt routine.
-   It is a function that doesn't accept any parameter and returns void.
+   It is a function that expect a single void * parameter and returns void.
 */
-typedef void (*rfs_int_t) (void);
+typedef void (*rfs_int_t) (void *param);
 
 /* Register an interrupt routine.
    An interrupt routine has a priority. The given routine will be executed
@@ -48,12 +48,14 @@ typedef void (*rfs_int_t) (void);
      * src: source of interrupt that will trigger the interrupt routine
             (see enum rfsavr_inttype).
      * isr: routine to register.
+     * param: parameter to pass to the interrupt service routine.
      * prio: routine priority.
 
    Return 0 if the routine can be registered, 1 otherwise.
 */
 int8_t
-rfs_int_register (enum rfs_int_src src, rfs_int_t isr, int8_t prio);
+rfs_int_register (
+    enum rfs_int_src src, rfs_int_t isr, void *param, int8_t prio);
 
 #endif
 

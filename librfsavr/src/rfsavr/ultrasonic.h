@@ -25,28 +25,34 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 
 #include "pin.h"
 
-// Flags
+// Forward declarations
+typedef struct rfs_ultrasonic_s rfs_ultrasonic_t;
 
-#define RFS_ULTRASONIC_NOBLOCK  1
+// Type that describes the callback to be executed in non-blocking mode when
+// the echo is received
+typedef void
+(*rfs_ultrasonic_callback_t)(rfs_ultrasonic_t *us, uint16_t distance);
 
 // Struct that contain the information to manage the ultrasonic sensor
-typedef struct {
+struct rfs_ultrasonic_s {
 
     // The trigger pin
     rfs_pin_t trigger_pin;
 
-} rfs_ultrasonic_t;
+    // Timestamp of the echo pulse's rising edge
+    uint16_t startecho;
 
-// Type that describes the callback to be executed in non-blocking mode when
-// the echo is received
-typedef void (*rfs_ultrasonic_callback_t)(void);
+    // Callback to execute in non-blocking mode to signal the end of the echo
+    // pulse
+    rfs_ultrasonic_callback_t callback;
+
+};
 
 /* Initialize the ultrasonic module.
      * descriptor: ultrasonic descriptor.
      * trigger_pin: the i/o pin connected to the trigger signal. Must be
         configured in advance.
      * prescaler: The timer1 prescaler value to use.
-     * flags: Ultrasonic configuration options.
      * callback: When in non blocking mode, the callback that will be executed
         when the echo is received.
 */
@@ -54,10 +60,11 @@ void
 rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
                      rfs_pin_t *trigger_pin,
                      int8_t prescaler,
-                     int8_t flags,
                      rfs_ultrasonic_callback_t callback);
 
 /* Trigger the ultrasonic sensor.
+   If the parameter callback is given, the ultrasonic module is configured in
+   non-blocking mode.
    In blocking mode, this function blocks until the echo has been received and
    then returns the measured distance. In non blocking mode, this function
    returns immediately with the result 0. The callback function will be
@@ -65,6 +72,9 @@ rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
    will have to use the rfs_ultrasonic_get function to retrieve the mesaured
    distance.
      * descriptor: ultrasonic descriptor.
+     * trigger_pin: the pin connected to the trigger signal.
+     * prescaler: prescaler value to set the Timer1 speed.
+     * callback: callback to execute in non-blocking mode.
 */
 uint16_t
 rfs_ultrasonic_trigger (rfs_ultrasonic_t *descriptor);
