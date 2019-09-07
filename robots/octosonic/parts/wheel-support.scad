@@ -2,9 +2,9 @@
 include <defs.scad>;
 
 DXF_FILE = str(DRAWINGS_DIR, "/wheel-support.dxf");
-LOW_HEIGHT = 9;
+LOW_HEIGHT = 9.5;
 LOW_LAYER = "openscad_low";
-HIGH_HEIGHT = 16.5;
+HIGH_HEIGHT = 17;
 HIGH_LAYER = "openscad_high";
 AXIS_LENGTH = 14;
 AXIS_RADIUS = 4.75;
