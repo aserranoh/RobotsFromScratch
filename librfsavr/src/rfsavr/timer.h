@@ -24,10 +24,48 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 #define RFSAVR_TIMER_H
 
 // Timer1 source constants
-#define RFS_TIMER1_PRESCALER64  3
+#define RFS_TIMER1_PRESCALER64          3
+
+// Timer1 capture edge constants
+#define RFS_TIMER1_FALLING              0x00
+#define RFS_TIMER1_RAISING              0x40
+
+// Timer1 interrupt mask constants
+#define RFS_TIMER1_INT_CAPTURE          0x20
+#define RFS_TIMER1_INT_COMPAREA         0x02
+#define RFS_TIMER1_INT_COMPAREB         0x04
+#define RFS_TIMER1_INT_OVERFLOW         0x01
 
 // Timer1 macros
-#define rfs_timer1_counter      TCNT1
+
+// Return the value of the Timer1 counter
+#define rfs_timer1_counter              TCNT1
+
+// Return the value of the Timer1 capture register
+#define rfs_timer1_capture              ICR1
+
+/* Return the value of the Timer1 capture edge:
+   - RFS_TIMER1_FALLING: configured to detect a falling edge.
+   - RFS_TIMER1_RAISING: configured to detect a rising edge.
+*/
+#define rfs_timer1_captureedge          (TCCR1B & _BV (ICES1))
+
+/* Set the Timer1 capture edge:
+   - RFS_TIMER1_FALLING: configured to detect a falling edge.
+   - RFS_TIMER1_RAISING: configured to detect a rising edge.
+*/
+#define rfs_timer1_setcaptureedge(e)    TCCR1B = (TCCR1B & ~_BV (ICES1)) | (e)
+
+/* Set the Timer1 interrupt mask. The argument is an or of:
+   - RFS_TIMER1_INT_CAPTURE: input capture interrupt.
+   - RFS_TIMER1_INT_COMPAREA: output compare A interrupt.
+   - RFS_TIMER1_INT_COMPAREB: output compare B interrupt.
+   - RFS_TIMER1_INT_OVERFLOW: overflow interrupt.
+*/
+#define rfs_timer1_setintmask(m)        TIMSK1 = m
+
+// Reset the given interrupt flags
+#define rfs_timer1_resetintflag(f)      TIFR1 &= ~(f)
 
 // Timer1 possible mode of operation
 enum rfs_timer1_mode {

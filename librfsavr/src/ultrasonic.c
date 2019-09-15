@@ -36,7 +36,7 @@ ultrasonic_int ()
     if (rfs_timer1_captureedge == RFS_TIMER1_RAISING) {
         ultrasonic_startecho = rfs_timer1_capture;
         rfs_timer1_setcaptureedge (RFS_TIMER1_FALLING);
-        rfs_timer1_resetcaptureflag;
+        rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
     }
     // When falling edge, record the edge timestamp
     else {
@@ -70,34 +70,20 @@ rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
     }
 } 
 
-int8_t
-rfsavr_ultrasonic_trigger (rfsavr_ultrasonic_t *descriptor)
+uint16_t
+rfs_ultrasonic_trigger (rfs_ultrasonic_t *descriptor)
 {
-    // Make sure a certain amount of time has passed before retriggering
-    uint16_t current_timestamp = timer1_get ();
-    if (current_timestamp - descriptor->trigger_timestamp
-        >= descriptor->wait_time)
-    {
-        descriptor->trigger_timestamp = current_timestamp;
+    // Configure the input capture unit to listen to a rising edge
+    rfsavr_capture_setopts (RFSAVR_CAPTURE_FALLING);
 
-        // Reset the pulse timestamps
-        descriptor->start_pulse_timetamp = -1;
-
-        // Configure the input capture unit to listen to a rising edge
-        rfsavr_capture_setopts (RFSAVR_CAPTURE_FALLING);
-
-        // Emit the trigering pulse
-        rfsavr_pin_set (&(descriptor->pin));
-        _delay_us(ULTRASONIC_TRIGGER_PULSE_LENGTH);
-        rfsavr_pin_reset (&(descriptor->pin));
-        return 1;
-    } else {
-        return 0;
-    }
+    // Emit the trigering pulse
+    rfsavr_pin_set (&(descriptor->pin));
+    _delay_us(ULTRASONIC_TRIGGER_PULSE_LENGTH);
+    rfsavr_pin_reset (&(descriptor->pin));
 }
 
 int32_t
-rfsavr_ultrasonic_read (rfsavr_ultrasonic_t *descriptor)
+rfsavr_ultrasonic_read (rfs_ultrasonic_t *descriptor)
 {
     int32_t end_pulse_timestamp;
 

@@ -23,7 +23,7 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 #ifndef RFSAVR_ULTRASONIC_H
 #define RFSAVR_ULTRASONIC_H
 
-#include "rfsavr/pin.h"
+#include "pin.h"
 
 // Flags
 

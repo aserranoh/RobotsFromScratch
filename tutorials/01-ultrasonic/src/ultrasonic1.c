@@ -36,7 +36,7 @@ int main () {
 
     rfs_ultrasonic_t us;
     rfs_pin_t trigger_pin;
-    uint16_t timestamp;
+    uint16_t last_timestamp, current_timestamp;
     int16_t distance;
     char s[8];
 
@@ -55,7 +55,7 @@ int main () {
     sei ();
 
     // Get the first trigger timestamp
-    timestamp = rfs_timer1_counter;
+    last_timestamp = rfs_timer1_counter;
 
     // Main loop
     while (1) {
@@ -69,10 +69,13 @@ int main () {
         rfs_usart_write (s, strlen(s));
 
         // Wait until 50ms have elapsed
-        while (rfs_timer1_counter - timestamp < PERIOD);
+        current_timestamp = rfs_timer1_counter;
+        while (current_timestamp - last_timestamp < PERIOD) {
+            current_timestamp = rfs_timer1_counter;
+        }
 
         // Update the timestamp
-        timestamp = rfs_timer1_counter;
+        last_timestamp = current_timestamp;
     }
 }
 
