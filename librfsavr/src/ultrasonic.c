@@ -39,6 +39,7 @@ ultrasonic_int (void *param)
     // edge
     if (rfs_timer1_captureedge == RFS_TIMER1_RAISING) {
         us->startecho = rfs_timer1_capture;
+        // Change the edge to detect (falling)
         rfs_timer1_setcaptureedge (RFS_TIMER1_FALLING);
         rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
     }
@@ -47,6 +48,9 @@ ultrasonic_int (void *param)
         if (us->callback) {
             us->callback (us, rfs_timer1_capture - us->startecho);
         }
+        // Change the edge to detect (raising)
+        rfs_timer1_setcaptureedge (RFS_TIMER1_RAISING);
+        rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
     }
 }
 
@@ -62,14 +66,20 @@ rfs_ultrasonic_init (rfs_ultrasonic_t *descriptor,
     // Configure the trigger pin as output
     rfs_pin_output (*trigger_pin);
 
+    // Configure the echo pin as input
+    DDRB &= ~_BV (DDB0);
+
     // Initialize the Timer1 subsystem
     rfs_timer1_init (RFS_TIMER1_MODE_NORMAL);
     rfs_timer1_setclocksrc (prescaler);
 
+    // Configure the input capture unit to listen to a rising edge
+    rfs_timer1_setcaptureedge (RFS_TIMER1_RAISING);
+
     // If in non-blocking mode, register and enable timer1 input capture
     // interrupts
+    descriptor->callback = callback;
     if (callback) {
-        descriptor->callback = callback;
         rfs_int_register (RFS_INT_T1CAPTURE, ultrasonic_int, descriptor, 0);
         rfs_timer1_setintmask (RFS_TIMER1_INT_CAPTURE);
     }
@@ -79,9 +89,6 @@ uint16_t
 rfs_ultrasonic_trigger (rfs_ultrasonic_t *descriptor)
 {
     uint16_t startecho, distance;
-
-    // Configure the input capture unit to listen to a rising edge
-    rfs_timer1_setcaptureedge (RFS_TIMER1_RAISING);
 
     // Emit the trigering pulse
     rfs_pin_set (descriptor->trigger_pin);
@@ -96,13 +103,15 @@ rfs_ultrasonic_trigger (rfs_ultrasonic_t *descriptor)
         // Wait for the rising edge of the echo pulse
         while (!rfs_timer1_getintflag (RFS_TIMER1_INT_CAPTURE));
         // Record timestamp and change the edge to detect
-        startecho = rfs_timer1_counter;
+        startecho = rfs_timer1_capture;
         rfs_timer1_setcaptureedge (RFS_TIMER1_FALLING);
         rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
         // Wait for the falling edge of the echo pulse
         while (!rfs_timer1_getintflag (RFS_TIMER1_INT_CAPTURE));
         // Return the distance value
-        distance = rfs_timer1_counter - startecho;
+        distance = rfs_timer1_capture - startecho;
+        // Change the edge to detect (raising)
+        rfs_timer1_setcaptureedge (RFS_TIMER1_RAISING);
         rfs_timer1_resetintflag (RFS_TIMER1_INT_CAPTURE);
     }
     return distance;

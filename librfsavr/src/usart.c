@@ -279,7 +279,7 @@ rfs_usart_init (int8_t mode, int32_t flags)
     UCSR0C = (UCSR0C & ~USART_REGC_MASK) | (int8_t)((flags >> 16) & 0xff);
 
     // Enable interrupts
-    if (flags & RFS_USART_INT) {
+    if (usart_int) {
         rfs_int_register (RFS_INT_USARTRX, rfs_usart_rx, 0, 0);
         rfs_int_register (RFS_INT_USARTIDLE, rfs_usart_tx, 0, 0);
     }

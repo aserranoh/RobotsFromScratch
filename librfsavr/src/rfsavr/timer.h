@@ -65,7 +65,7 @@ along with RobotsFromScratch; see the file COPYING.  If not, see
 #define rfs_timer1_setintmask(m)        TIMSK1 = m
 
 // Reset the given interrupt flags
-#define rfs_timer1_resetintflag(f)      TIFR1 &= ~(f)
+#define rfs_timer1_resetintflag(f)      TIFR1 |= (f)
 
 // Get the status of the interrupt flags
 #define rfs_timer1_getintflag(f)        (TIFR1 & (f))

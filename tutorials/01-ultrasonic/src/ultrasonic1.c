@@ -45,10 +45,11 @@ int main () {
 
     // Create the ultrasonic sensor
     rfs_pin_initb (&trigger_pin, 1);
-    rfs_ultrasonic_init (&us, &trigger_pin, RFS_TIMER1_PRESCALER64, 0, 0);
+    rfs_ultrasonic_init (&us, &trigger_pin, RFS_TIMER1_PRESCALER64, 0);
 
     // Initialize the USART
-    rfs_usart_init (RFS_USART_MODE_ASYNC, RFS_USART_RXTX | RFS_USART_INT);
+    rfs_usart_init (RFS_USART_MODE_ASYNC,
+        RFS_USART_TX | RFS_USART_8BITS | RFS_USART_INT);
     rfs_usart_setspeed (RFS_USART_B19200);
 
     // Activate global interrupts
@@ -63,10 +64,10 @@ int main () {
         distance = rfs_ultrasonic_trigger (&us);
 
         // Put the distance in a string
-        sprintf (s, "%d\n", distance);
+        sprintf (s, "%u\n", distance);
 
         // Send the string through the serial port
-        rfs_usart_write (s, strlen(s));
+        rfs_usart_write (s, strlen (s));
 
         // Wait until 50ms have elapsed
         current_timestamp = rfs_timer1_counter;
