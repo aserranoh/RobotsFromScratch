@@ -1,0 +1,9 @@
+
+FROM python:3.11.0b3-alpine
+WORKDIR /app
+ENV JOYSTICK_PORT=5555
+ENV CTL_ADDR=localhost
+ENV CTL_PORT=5556
+COPY control.py ./
+CMD python3 control.py $JOYSTICK_PORT $CTL_ADDR $CTL_PORT
+

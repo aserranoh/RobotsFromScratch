@@ -1,0 +1,39 @@
+ <!DOCTYPE html>
+<html>
+  <head>
+    <title>Joystick</title>
+    <meta name="author" content="Antonio Serrano Hernandez">
+    <script src="joy.js"></script>
+  </head>
+  <body>
+    <div id="joyDiv" style="width:200px;height:200px;margin:50px;"></div>
+
+    <script type="text/javascript">
+
+// Hold the last sent position
+var prevX = 0;
+var prevY = 0;
+
+function onJoystickChange(status) {
+    if (status.x != prevX || status.y != prevY) {
+        // Send the new status
+        const xhttp = new XMLHttpRequest();
+        xhttp.open("POST", "position", true);
+        xhttp.setRequestHeader(
+            "Content-type", "application/x-www-form-urlencoded");
+        xhttp.send("x=" + status.x + "&y=" + status.y);
+
+        // Update the last sent position
+        prevX = status.x;
+        prevY = status.y;
+    }
+}
+
+// Instantiate our joystick
+var Joy = new JoyStick("joyDiv", null, onJoystickChange);
+
+		</script>
+
+  </body>
+</html>
+

@@ -1,0 +1,21 @@
+ <!DOCTYPE html>
+<html>
+  <head>
+    <title>Simulator</title>
+    <meta name="author" content="Antonio Serrano Hernandez">
+  </head>
+  <body>
+    <p id="myp">I'm here</p>
+
+    <script type="text/javascript">
+
+var es = new EventSource("/events");
+es.onmessage = function(e) {
+    document.getElementById("myp").innerHTML = e.data;
+}
+
+    </script>
+
+  </body>
+</html>
+
