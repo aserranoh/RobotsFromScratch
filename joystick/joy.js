@@ -6,6 +6,8 @@
  *
  * Modification History:
  * Date         Version     Modified By     Description
+ * 2022-06-26   2.1.0       Antonio Serrano Improved graphics
+ *                                          Fixed bouncing on IOS
  * 2021-12-21   2.0.0       Roberto D'Amico New version of the project that integrates the callback functions, while 
  *                                          maintaining compatibility with previous versions. Fixed Issue #27 too, 
  *                                          thanks to @artisticfox8 for the suggestion.
@@ -62,11 +64,7 @@ let StickStatus =
  *  title {String} (optional) - The ID of canvas (Default value is 'joystick')
  *  width {Int} (optional) - The width of canvas, if not specified is setted at width of container object (Default value is the width of container object)
  *  height {Int} (optional) - The height of canvas, if not specified is setted at height of container object (Default value is the height of container object)
- *  internalFillColor {String} (optional) - Internal color of Stick (Default value is '#00AA00')
- *  internalLineWidth {Int} (optional) - Border width of Stick (Default value is 2)
- *  internalStrokeColor {String}(optional) - Border color of Stick (Default value is '#003300')
- *  externalLineWidth {Int} (optional) - External reference circonference width (Default value is 2)
- *  externalStrokeColor {String} (optional) - External reference circonference color (Default value is '#008000')
+ *  internalStrokeColor {String}(optional) - Border color of Stick (Default value is '#00AA00')
  *  autoReturnToCenter {Bool} (optional) - Sets the behavior of the stick, whether or not, it should return to zero position when released (Default value is True and return to zero)
  * @param callback {StickStatus} - 
  */
@@ -76,11 +74,7 @@ var JoyStick = (function(container, parameters, callback)
     var title = (typeof parameters.title === "undefined" ? "joystick" : parameters.title),
         width = (typeof parameters.width === "undefined" ? 0 : parameters.width),
         height = (typeof parameters.height === "undefined" ? 0 : parameters.height),
-        internalFillColor = (typeof parameters.internalFillColor === "undefined" ? "#00AA00" : parameters.internalFillColor),
-        internalLineWidth = (typeof parameters.internalLineWidth === "undefined" ? 2 : parameters.internalLineWidth),
-        internalStrokeColor = (typeof parameters.internalStrokeColor === "undefined" ? "#003300" : parameters.internalStrokeColor),
-        externalLineWidth = (typeof parameters.externalLineWidth === "undefined" ? 2 : parameters.externalLineWidth),
-        externalStrokeColor = (typeof parameters.externalStrokeColor ===  "undefined" ? "#008000" : parameters.externalStrokeColor),
+        internalStrokeColor = (typeof parameters.internalStrokeColor === "undefined" ? "#00AA00" : parameters.internalStrokeColor),
         autoReturnToCenter = (typeof parameters.autoReturnToCenter === "undefined" ? true : parameters.autoReturnToCenter);
 
     callback = callback || function(StickStatus) {};
@@ -89,7 +83,7 @@ var JoyStick = (function(container, parameters, callback)
     var objContainer = document.getElementById(container);
     
     // Fixing Unable to preventDefault inside passive event listener due to target being treated as passive in Chrome [Thanks to https://github.com/artisticfox8 for this suggestion]
-    objContainer.style.touchAction = "none";
+    //objContainer.style.touchAction = "none";
 
     var canvas = document.createElement("canvas");
     canvas.id = title;
@@ -104,7 +98,6 @@ var JoyStick = (function(container, parameters, callback)
     var circumference = 2 * Math.PI;
     var internalRadius = (canvas.width-((canvas.width/2)+10))/2;
     var maxMoveStick = internalRadius + 5;
-    var externalRadius = internalRadius + 30;
     var centerX = canvas.width / 2;
     var centerY = canvas.height / 2;
     var directionHorizontalLimitPos = canvas.width / 10;
@@ -119,32 +112,38 @@ var JoyStick = (function(container, parameters, callback)
     if("ontouchstart" in document.documentElement)
     {
         canvas.addEventListener("touchstart", onTouchStart, false);
-        document.addEventListener("touchmove", onTouchMove, false);
-        document.addEventListener("touchend", onTouchEnd, false);
+        canvas.addEventListener("touchmove", onTouchMove, false);
+        canvas.addEventListener("touchend", onTouchEnd, false);
     }
     else
     {
         canvas.addEventListener("mousedown", onMouseDown, false);
-        document.addEventListener("mousemove", onMouseMove, false);
-        document.addEventListener("mouseup", onMouseUp, false);
+        canvas.addEventListener("mousemove", onMouseMove, false);
+        canvas.addEventListener("mouseup", onMouseUp, false);
     }
     // Draw the object
-    drawExternal();
     drawInternal();
 
     /******************************************************
      * Private methods
      *****************************************************/
 
-    /**
-     * @desc Draw the external circle used as reference position
-     */
-    function drawExternal()
+    function adjustPosition()
+    {
+        if(movedX<internalRadius) { movedX=maxMoveStick; }
+        if((movedX+internalRadius) > canvas.width) { movedX = canvas.width-(maxMoveStick); }
+        if(movedY<internalRadius) { movedY=maxMoveStick; }
+        if((movedY+internalRadius) > canvas.height) { movedY = canvas.height-(maxMoveStick); }
+    }
+
+    function drawStick()
     {
         context.beginPath();
-        context.arc(centerX, centerY, externalRadius, 0, circumference, false);
-        context.lineWidth = externalLineWidth;
-        context.strokeStyle = externalStrokeColor;
+        context.moveTo(centerX, centerY);
+        context.lineTo(movedX, movedY);
+        context.lineWidth = internalRadius * 0.5;
+        context.strokeStyle = "DarkSlateGray";
+        context.lineCap = "round";
         context.stroke();
     }
 
@@ -153,23 +152,21 @@ var JoyStick = (function(container, parameters, callback)
      */
     function drawInternal()
     {
+        adjustPosition();
+
+        drawStick();
+
         context.beginPath();
-        if(movedX<internalRadius) { movedX=maxMoveStick; }
-        if((movedX+internalRadius) > canvas.width) { movedX = canvas.width-(maxMoveStick); }
-        if(movedY<internalRadius) { movedY=maxMoveStick; }
-        if((movedY+internalRadius) > canvas.height) { movedY = canvas.height-(maxMoveStick); }
         context.arc(movedX, movedY, internalRadius, 0, circumference, false);
         // create radial gradient
-        var grd = context.createRadialGradient(centerX, centerY, 5, centerX, centerY, 200);
+        var grd = context.createRadialGradient(movedX - internalRadius*0.4, movedY - internalRadius*0.4, 5, movedX - internalRadius*0.4, movedY - internalRadius*0.4, internalRadius * 2);
         // Light color
-        grd.addColorStop(0, internalFillColor);
+        grd.addColorStop(0, "white");
         // Dark color
+        grd.addColorStop(0.3, internalStrokeColor);
         grd.addColorStop(1, internalStrokeColor);
         context.fillStyle = grd;
         context.fill();
-        context.lineWidth = internalLineWidth;
-        context.strokeStyle = internalStrokeColor;
-        context.stroke();
     }
 
     /**
@@ -182,6 +179,8 @@ var JoyStick = (function(container, parameters, callback)
 
     function onTouchMove(event)
     {
+        // Prevent the browser from doing its default thing (scroll, zoom)
+		event.preventDefault();
         if(pressed === 1 && event.targetTouches[0].target === canvas)
         {
             movedX = event.targetTouches[0].pageX;
@@ -200,7 +199,6 @@ var JoyStick = (function(container, parameters, callback)
             // Delete canvas
             context.clearRect(0, 0, canvas.width, canvas.height);
             // Redraw object
-            drawExternal();
             drawInternal();
 
             // Set attribute of callback
@@ -225,7 +223,6 @@ var JoyStick = (function(container, parameters, callback)
         // Delete canvas
         context.clearRect(0, 0, canvas.width, canvas.height);
         // Redraw object
-        drawExternal();
         drawInternal();
 
         // Set attribute of callback
@@ -266,7 +263,6 @@ var JoyStick = (function(container, parameters, callback)
             // Delete canvas
             context.clearRect(0, 0, canvas.width, canvas.height);
             // Redraw object
-            drawExternal();
             drawInternal();
 
             // Set attribute of callback
@@ -291,7 +287,6 @@ var JoyStick = (function(container, parameters, callback)
         // Delete canvas
         context.clearRect(0, 0, canvas.width, canvas.height);
         // Redraw object
-        drawExternal();
         drawInternal();
 
         // Set attribute of callback

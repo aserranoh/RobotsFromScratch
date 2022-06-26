@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import socket
 import sys
 import bottle
@@ -10,11 +11,15 @@ def root():
 
 @bottle.route('/main.html')
 def main():
-    return bottle.static_file('main.html', root='.')
+    return bottle.template('main.html', color=os.environ['JOYSTICK_COLOR'])
 
 @bottle.route('/joy.js')
 def joy():
     return bottle.static_file('joy.js', root='.')
+
+@bottle.route('/joystick-base.png')
+def joy():
+    return bottle.static_file('joystick-base.png', root='.')
 
 @bottle.route('/position', method=['POST'])
 def position():
@@ -27,8 +32,6 @@ if __name__ == "__main__":
     http_port = int(sys.argv[1])
     dst_address = sys.argv[2]
     udp_port = int(sys.argv[3])
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     bottle.run(host='0.0.0.0', port=http_port, quiet=True)
 
