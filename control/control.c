@@ -1,5 +1,6 @@
 
 #include <arpa/inet.h>
+#include <err.h>
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -7,16 +8,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Default constants
+#define DEFAULT_JOYSTICK_PORT   5555
+#define DEFAULT_CTL_ADDR        "localhost"
+#define DEFAULT_CTL_PORT        5556
+
 #define MAXDATA 1024
 
-unsigned short in_port;
-char *out_addr;
-unsigned short out_port;
+unsigned short joystick_port;
+const char *ctl_addr;
+unsigned short ctl_port;
 int in_sock;
 int out_sock;
 struct sockaddr_in outaddr;
 
-/* toshort
+/* toint
    Convert a c-string to a number.
  */
 long
@@ -35,67 +41,123 @@ toint(const char *s, int *error)
     return number;
 }
 
-void
-init(int argc, char *argv[])
+/* get_port
+   Return a port number from a environtment variable.
+ */
+static unsigned short
+get_port(const char *var, unsigned short default_port)
 {
-    // Get the parameters
-    if (argc < 4) {
-        fprintf(stderr, "usage: control IN_PORT OUT_ADDRESS OUT_PORT\n");
-        exit(1);
+    char *s = getenv(var);
+    unsigned short port;
+
+    if (!s || *s == '\0') {
+        // If the variable is not defined or empty, return the default port
+        port = default_port;
+    } else {
+        char *end_ptr;
+        unsigned long l = strtoul(s, &end_ptr, 0);
+        if (l > USHRT_MAX || *end_ptr != '\0') {
+            errx(1, "wrong port %s", var);
+        } else {
+            port = (unsigned short)l;
+        }
     }
-    int e;
-    long l = toint(argv[1], &e);
-    if (e || l < 0 || l > USHRT_MAX) {
-        fprintf(stderr, "error: wrong in_port\n");
-        exit(1);
+    return port;
+}
+
+/* get_str
+   Return a string from a environtment variable.
+ */
+static const char *
+get_str(const char *var, const char *default_str)
+{
+    const char *s = getenv(var);
+
+    if (!s || *s == '\0') {
+        // If the variable is not defined or empty, return the default string
+        s = default_str;
     }
-    in_port = l;
-    out_addr = argv[2];
-    l = toint(argv[3], &e);
-    if (e || l < 0 || l > USHRT_MAX) {
-        fprintf(stderr, "error: wrong out_port\n");
-        exit(1);
-    }
-    out_port = l;
+    return s;
+}
+
+/* read_environ
+   Read the environment variables that contain the input parameters.
+ */
+static void
+read_environ()
+{
+    // Get HTTP port
+    joystick_port = get_port("JOYSTICK_PORT", DEFAULT_JOYSTICK_PORT);
+
+    // Get destination address
+    ctl_addr = get_str("CTL_ADDR", DEFAULT_CTL_ADDR);
+
+    // Get CTL port
+    ctl_port = get_port("CTL_PORT", DEFAULT_CTL_PORT);
+}
+
+/* init
+   Initialize the application.
+ */
+void
+init()
+{
+    // Read input variables
+    read_environ();
 
     // Open input socket
     struct sockaddr_in servaddr;
     in_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (in_sock < 0) {
-        perror("input socket creation failed");
-        exit(1);
+        err(1, "input socket creation failed");
     }
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(in_port);
+    servaddr.sin_port = htons(joystick_port);
     if (bind(in_sock, (const struct sockaddr *)&servaddr,
         sizeof(servaddr)) < 0)
     {
-        perror("bind failed");
-        exit(1);
+        err(1, "bind failed");
     }
 
     // Open output socket
     out_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (out_sock < 0) {
-        perror("output socket creation failed");
-        exit(1);
+        err(1, "output socket creation failed");
     }
     struct hostent *he;
-    if ((he = gethostbyname(out_addr)) == NULL) {
-        fprintf(stderr, "error: cannot get destination address '%s'\n",
-            out_addr);
-        exit(1);
+    if ((he = gethostbyname(ctl_addr)) == NULL) {
+        errx(1, "cannot get destination address '%s'", ctl_addr);
     }
     memcpy(&outaddr.sin_addr, he->h_addr_list[0], he->h_length);
     outaddr.sin_family = AF_INET;
-    outaddr.sin_port = htons(out_port);
+    outaddr.sin_port = htons(ctl_port);
+}
+
+/* get_component
+   Get a component (turn, speed) from the message.
+ */
+short
+get_component(const char *ptr)
+{
+    int e;
+    long l = toint(ptr, &e);
+    if (e) {
+        warnx("error: wrong value %s", ptr);
+        return -300;
+    }
+    if (l > 100) {
+        l = 100;
+    } else if (l < -100) {
+        l = -100;
+    }
+    return l*255/100;
 }
 
 int
-main(int argc, char *argv[])
+main()
 {
-    init(argc, argv);
+    init();
 
     char buffer[MAXDATA];
     while (1) {
@@ -103,33 +165,24 @@ main(int argc, char *argv[])
         int n = recv(in_sock, (char *)buffer, MAXDATA, 0);
 
         // Check the data and get the fields
-        if (!n) {
-            continue;
-        }
+        if (!n) continue;
         if (buffer[0] != ':' || buffer[n - 1] != '\n') {
-            fprintf(stderr, "wrong data (no header or footer)\n");
+            warnx("wrong data (no header or footer)");
             continue;
         }
         buffer[n - 1] = '\0';
         char *ptr = strchr(buffer + 1, ',');
         if (!ptr) {
-            fprintf(stderr, "wrong data (no field separator)\n");
+            warnx("wrong data (no field separator)");
             continue;
         }
         *ptr = '\0';
-        int e;
-        long l = toint(buffer + 1, &e);
-        if (e || l < -UCHAR_MAX || l > UCHAR_MAX) {
-            fprintf(stderr, "error: wrong speed\n");
+        short turn, speed;
+        if ((turn = get_component(buffer + 1)) < -UCHAR_MAX
+            || (speed = get_component(ptr + 1)) < -UCHAR_MAX)
+        {
             continue;
         }
-        short turn = l;
-        l = toint(ptr + 1, &e);
-        if (e || l < -UCHAR_MAX || l > UCHAR_MAX) {
-            fprintf(stderr, "error: wrong turn\n");
-            continue;
-        }
-        short speed = l;
 
         // Build the message to send
         n = sprintf(buffer, ":mv,%hd,%hd\n", speed, turn);
