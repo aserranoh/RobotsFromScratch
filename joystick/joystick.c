@@ -1,9 +1,8 @@
 
 #include "mongoose.h"
+#include "utils.h"
 
 #include <err.h>
-#include <stdio.h>
-#include <unistd.h>
 
 // Default constants
 #define DEFAULT_HTTP_PORT       8888
@@ -22,57 +21,7 @@ const char *joystick_color;
 const char *main_page;
 int sock;
 struct sockaddr_in sockaddr;
-
-/* load_file
-   Loads a whole file onto a buffer.
- */
-static const char *
-load_file(const char *path)
-{
-    int fd = -1;
-    char *buffer = 0;
-
-    // Open the file to load
-    if ((fd = open(path, O_RDONLY)) < 0) {
-        warn("cannot open file %s", path);
-        goto cleanup;
-    }
-
-    // Get the size of the file
-    off_t size = lseek(fd, 0, SEEK_END);
-    if (size < 0) {
-        warn("cannot get size of file %s", path);
-        goto cleanup;
-    }
-
-    // Return to the beginning of the file
-    lseek(fd, 0, SEEK_SET);
-
-    // Create a buffer to read the file (allocate 1 extra byte to store a
-    // null character at the end)
-    if (!(buffer = malloc(size + 1))) {
-        err(1, "cannot allocate memory");
-    }
-
-    // Read the whole file
-    off_t total_read = 0, r;
-    while (total_read < size) {
-        r = read(fd, buffer + total_read, size - total_read);
-        if (r < 0) {
-            warn("cannot read file %s", path);
-            free(buffer);
-            buffer = 0;
-            goto cleanup;
-        }
-        total_read += r;
-    }
-    buffer[size] = '\0';
-cleanup:
-    if (fd >= 0) {
-        close(fd);
-    }
-    return buffer;
-}
+struct mg_connection *udp_conn;
 
 /* callback
    Callback where the HTTP resources are served.
@@ -100,72 +49,27 @@ callback(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
             };
             mg_http_serve_dir(c, hm, &opts);
         } else if (mg_http_match_uri(hm, "/position")) {
-            char x[32] = "";
-            char y[32] = "";
-            int xres = mg_http_get_var(&hm->body, "x", x, sizeof(x));
-            int yres = mg_http_get_var(&hm->body, "y", y, sizeof(y));
-            if (xres <= 0 || yres <= 0) {
+            char x[32] = "", y[32] = "";
+            if (mg_http_get_var(&hm->body, "x", x, sizeof(x)) <= 0
+                || mg_http_get_var(&hm->body, "y", y, sizeof(y)) <= 0)
+            {
                 warnx("cannot get x or y parameters");
                 mg_http_reply(c, 400, "", "Missing x or y parameters\r\n");
             } else {
                 // Convert x and y parameters to numbers
-                long lx = strtoul(x, 0, 0);
-                long ly = strtoul(y, 0, 0);
-
-                // Create the message
-                char msg[MSG_LENGTH];
-                size_t n = snprintf(msg, sizeof(msg), ":%ld,%ld\n", lx, ly);
+                long lx, ly;
+                toulong(x, &lx);
+                toulong(y, &ly);
 
                 // Send the message
-                sendto(sock, msg, n, 0, (const struct sockaddr *)&sockaddr,
-                    sizeof(sockaddr));
+                mg_printf(udp_conn, ":%ld,%ld\n", lx, ly);
                 mg_http_reply(c, 204, "", "");
             }
         } else {
-            // Unknown content
             warnx("unknown content");
             mg_http_reply(c, 404, "", "Content not found\r\n");
         }
     }
-}
-
-/* get_port
-   Return a port number from a environtment variable.
- */
-static unsigned short
-get_port(const char *var, unsigned short default_port)
-{
-    char *s = getenv(var);
-    unsigned short port;
-
-    if (!s || *s == '\0') {
-        // If the variable is not defined or empty, return the default port
-        port = default_port;
-    } else {
-        char *end_ptr;
-        unsigned long l = strtoul(s, &end_ptr, 0);
-        if (l > USHRT_MAX || *end_ptr != '\0') {
-            errx(1, "wrong port %s", var);
-        } else {
-            port = (unsigned short)l;
-        }
-    }
-    return port;
-}
-
-/* get_str
-   Return a string from a environtment variable.
- */
-static const char *
-get_str(const char *var, const char *default_str)
-{
-    const char *s = getenv(var);
-
-    if (!s || *s == '\0') {
-        // If the variable is not defined or empty, return the default string
-        s = default_str;
-    }
-    return s;
 }
 
 /* read_environ
@@ -175,54 +79,58 @@ static void
 read_environ()
 {
     // Get HTTP port
-    http_port = get_port("HTTP_PORT", DEFAULT_HTTP_PORT);
+    char *s_port = getenv("HTTP_PORT");
+    if (!s_port)
+        http_port = DEFAULT_HTTP_PORT;
+    else if (toushort(s_port, &http_port))
+        errx(1, "wrong HTTP port %s", s_port);
 
     // Get destination address
-    dst_addr = get_str("DST_ADDR", DEFAULT_DST_ADDR);
+    dst_addr = getenv("DST_ADDR");
+    if (!dst_addr)
+        dst_addr = DEFAULT_DST_ADDR;
 
     // Get UDP port
-    udp_port = get_port("UDP_PORT", DEFAULT_UDP_PORT);
+    s_port = getenv("UDP_PORT");
+    if (!s_port)
+        udp_port = DEFAULT_UDP_PORT;
+    else if (toushort(s_port, &udp_port))
+        errx(1, "wrong UDP port %s", s_port);
 
     // Get joystick color
-    joystick_color = get_str("JOYSTICK_COLOR", DEFAULT_JOYSTICK_COLOR);
+    joystick_color = getenv("JOYSTICK_COLOR");
+    if (!joystick_color)
+        joystick_color = DEFAULT_JOYSTICK_COLOR;
 }
 
 int
 main(int argc, char *argv[])
 {
     struct mg_mgr mgr;
-    char http_addr[ADDR_LENGTH];
+    char addr[ADDR_LENGTH];
 
     // Read input variables
     read_environ();
 
     // Load the main.html file on memory
-    if (!(main_page = load_file("main.html"))) {
-        exit(1);
-    }
+    if (!(main_page = loadfile("main.html")))
+        err(1, "cannot load 'main.html'");
+
+    mg_mgr_init(&mgr);
 
     // Initialize the UDP socket
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        err(1, "udp socket creation failed");
-    }
-    struct hostent *he;
-    if ((he = gethostbyname(dst_addr)) == NULL) {
-        fprintf(stderr, "error: cannot get destination address '%s'\n",
-            dst_addr);
-        exit(1);
-    }
-    memcpy(&sockaddr.sin_addr, he->h_addr_list[0], he->h_length);
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port = htons(udp_port);
+    snprintf(addr, ADDR_LENGTH, "udp://%s:%hu", dst_addr, udp_port);
+    if (!(udp_conn = mg_connect(&mgr, addr, callback, NULL)))
+        err(1, "cannot connect to address %s", addr);
 
-    // Initialize server
-    mg_mgr_init(&mgr);
-    snprintf(http_addr, ADDR_LENGTH, "http://0.0.0.0:%hu", http_port);
-    mg_http_listen(&mgr, http_addr, callback, &mgr);
+    // Initialize HTTP server
+    snprintf(addr, ADDR_LENGTH, "http://0.0.0.0:%hu", http_port);
+    if (!mg_http_listen(&mgr, addr, callback, &mgr))
+        err(1, "cannot listen at address %s", addr);
 
     // Main loop
-    for (;;) mg_mgr_poll(&mgr, 1000);
+    for (;;)
+        mg_mgr_poll(&mgr, 1000);
 
     // Cleanup
     mg_mgr_free(&mgr);

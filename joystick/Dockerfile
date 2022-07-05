@@ -3,7 +3,7 @@ FROM alpine
 RUN apk update
 RUN apk --no-cache --update add build-base
 WORKDIR /app
-COPY ./Makefile ./joystick.c ./mongoose.c ./mongoose.h ./
+COPY ./Makefile ./joystick.c ./mongoose.c ./mongoose.h ./utils.c ./utils.h ./
 RUN make
 
 FROM scratch
